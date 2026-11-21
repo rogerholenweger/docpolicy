@@ -25,7 +25,26 @@ PYTHONPATH="$HOME/src/docpolicy${PYTHONPATH:+:$PYTHONPATH}" \\
 
 
 def _resolve_repo(args) -> Path:
-    return Path(args.repo).expanduser().resolve() if args.repo else Path.cwd().resolve()
+    raw = getattr(args, "repo", None)
+    if isinstance(raw, list):          # check/audit accept repeats; this is the 1st
+        raw = raw[0] if raw else None
+    return Path(raw).expanduser().resolve() if raw else Path.cwd().resolve()
+
+
+def _resolve_repos(args) -> list:
+    """Repos from --repo (repeatable) plus positional paths; default cwd.
+
+    Order is preserved and duplicates are dropped, so `--repo . work` and
+    `work --repo .` both mean the same thing."""
+    given = list(getattr(args, "repo", None) or []) + list(getattr(args, "repos", None) or [])
+    if not given:
+        return [Path.cwd().resolve()]
+    out = []
+    for raw in given:
+        p = Path(raw).expanduser().resolve()
+        if p not in out:
+            out.append(p)
+    return out
 
 
 def _load(args) -> tuple[Path, Policy]:
@@ -62,9 +81,51 @@ def _emit(findings, as_json: bool, advisory: bool):
     return 1 if blocked else 0
 
 
+def _run_many(repos, args, mode: str) -> int:
+    """check/audit over several repos. Mirrors docpolicy-all output; exit 1 if
+    any repo has error findings, 2 if any repo has no usable policy."""
+    results = []
+    rc = 0
+    for repo in repos:
+        try:
+            policy = load(repo)
+        except PolicyError as e:
+            print(f"docpolicy: {e}", file=sys.stderr)
+            rc = 2
+            continue
+        if mode == "check":
+            findings = checks.check(repo, policy, advisory=args.advisory)
+        else:
+            findings = checks.audit(repo, policy, advisory=args.advisory)
+        results.append((repo, findings))
+        if args.json:
+            continue
+        print(f"== {repo}")
+        rc = max(rc, _emit(findings, False, args.advisory))
+
+    if args.json:
+        payload = [{
+            "repo": str(repo),
+            "findings": [f.as_dict() for f in findings],
+            "summary": checks.summarize(findings),
+        } for repo, findings in results]
+        print(json.dumps({"repos": payload}, indent=2))
+        if not args.advisory and any(p["summary"]["errors"] for p in payload):
+            rc = max(rc, 1)
+    return rc
+
+
 def cmd_check(args) -> int:
+    repos = _resolve_repos(args)
+    if len(repos) > 1:
+        if getattr(args, "stdin_file", None) or args.files:
+            print("docpolicy: --files / --stdin-file apply to a single repo",
+                  file=sys.stderr)
+            return 2
+        return _run_many(repos, args, "check")
+    repo = repos[0]
     try:
-        repo, policy = _load(args)
+        policy = load(repo)
     except PolicyError as e:
         print(f"docpolicy: {e}", file=sys.stderr)
         return 2
@@ -90,8 +151,12 @@ def cmd_check(args) -> int:
 
 
 def cmd_audit(args) -> int:
+    repos = _resolve_repos(args)
+    if len(repos) > 1:
+        return _run_many(repos, args, "audit")
+    repo = repos[0]
     try:
-        repo, policy = _load(args)
+        policy = load(repo)
     except PolicyError as e:
         print(f"docpolicy: {e}", file=sys.stderr)
         return 2
@@ -331,7 +396,10 @@ def main(argv=None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     def common(sp):
-        sp.add_argument("--repo", help="repo root (default: cwd)")
+        sp.add_argument("--repo", action="append", metavar="PATH",
+                        help="repo root; repeatable (default: cwd)")
+        sp.add_argument("repos", nargs="*", metavar="PATH",
+                        help="repo roots as positional paths (same as --repo)")
         sp.add_argument("--json", action="store_true", help="machine-readable output")
         sp.add_argument("--advisory", action="store_true",
                         help="report everything as warnings, always exit 0")

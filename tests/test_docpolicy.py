@@ -322,6 +322,32 @@ class CliTest(unittest.TestCase):
         self.assertEqual(data["summary"]["errors"], 1)
         self.assertEqual(data["findings"][0]["code"], "C2")
 
+    def test_multi_repo_check(self):
+        repo2 = self.tmp / "repo2"
+        (repo2 / ".git").mkdir(parents=True)
+        write(repo2 / ".docpolicy.yaml", POLICY.format(issues=self.tmp / "queue.db"))
+        write(repo2 / "docs/a.md", "---\nsubject: s\nstatus: active\n---\n")
+        write(repo2 / "docs/b.md", "---\nsubject: s\nstatus: active\n---\n")
+        write(self.repo / "docs/one.md", "---\nsubject: s\nstatus: active\n---\n")
+        r = self.run_cli("check", "--repo", ".", str(repo2))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("== ", r.stdout)
+        self.assertIn(str(repo2), r.stdout)
+        # single-repo JSON keeps its shape; multi-repo wraps in {"repos": [...]}
+        single = json.loads(self.run_cli("check", "--repo", ".", "--json").stdout)
+        self.assertIn("findings", single)
+        multi = json.loads(self.run_cli("check", "--repo", ".", str(repo2), "--json").stdout)
+        self.assertEqual([p["repo"] for p in multi["repos"]], [str(self.repo), str(repo2)])
+        self.assertEqual(multi["repos"][1]["summary"]["errors"], 1)
+
+    def test_multi_repo_rejects_single_repo_flags(self):
+        repo2 = self.tmp / "repo2"
+        (repo2 / ".git").mkdir(parents=True)
+        write(repo2 / ".docpolicy.yaml", POLICY.format(issues=self.tmp / "queue.db"))
+        write(self.repo / "docs/one.md", "---\nsubject: s\nstatus: active\n---\n")
+        r = self.run_cli("check", "--repo", ".", str(repo2), "--files", "docs/one.md")
+        self.assertEqual(r.returncode, 2)
+
     def test_fix_dry_run_then_apply(self):
         write(self.repo / "docs/bare.md", "# bare")
         r = self.run_cli("fix", "--repo", ".")

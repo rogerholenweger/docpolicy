@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "docpolicy"
-version = "0.1.0"
+version = "0.1.1"
 description = "Portable documentation-drift enforcement — one policy file per repo, one stdlib-only checker, several enforcement surfaces."
 readme = "README.md"
 requires-python = ">=3.9"

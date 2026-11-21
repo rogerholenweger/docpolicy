@@ -210,9 +210,9 @@ docpolicy-all notes         # subset: named repos only (basename or path)
 ```
 
 - Installed as `~/.local/bin/docpolicy-all` → symlink to `scripts/docpolicy_all.sh`; runs from any cwd.
-- Default repo list: `DOCPOLICY_REPOS` (space-separated paths), else the `REPOS` array in the script. Repos without a `.docpolicy.yaml` are skipped with a note — add each repo once you init it.
+- Default repo list: `DOCPOLICY_REPOS` (space-separated paths), else `~/.config/docpolicy/repos.txt` (one path per line), else the `REPOS` array in the script. Repos without a `.docpolicy.yaml` are skipped with a note — add each repo once you init it.
 - Prints a one-line summary per repo; exit `1` if any repo has error findings.
-- Human-readable summary line per repo; use `docpolicy check --repo <dir>` directly for full per-finding detail.
+- For full per-finding detail across several repos, `check` and `audit` take more than one: `--repo` is repeatable and bare paths work, so `docpolicy check ~/src/a ~/src/b` or `docpolicy check --repo . --repo ~/src/b`. Output is a block per repo; with more than one repo `--json` wraps as `{"repos": [...]}` (the single-repo JSON shape is unchanged). `--files` and `--stdin-file` stay single-repo.
 
 ## LLM label layer (optional)
 
