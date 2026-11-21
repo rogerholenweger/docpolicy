@@ -15,9 +15,20 @@ from docpolicy.policy import GENERIC_TEMPLATE, POLICY_FILENAME, Policy, PolicyEr
 PRE_COMMIT = """\
 #!/bin/sh
 # docpolicy: block commits that violate the doc policy.
+# Checker: DOCPOLICY_SRC, else `docpolicy` on PATH, else a self-hosted copy in
+# this repo. If none exists, fail loudly rather than passing every commit.
 repo="$(git rev-parse --show-toplevel)" || exit 1
-PYTHONPATH="$HOME/src/docpolicy${PYTHONPATH:+:$PYTHONPATH}" \\
-  python3 -m docpolicy check --staged --repo "$repo" || {
+if [ -n "${DOCPOLICY_SRC:-}" ]; then
+  dp() { PYTHONPATH="$DOCPOLICY_SRC${PYTHONPATH:+:$PYTHONPATH}" python3 -m docpolicy "$@"; }
+elif command -v docpolicy >/dev/null 2>&1; then
+  dp() { docpolicy "$@"; }
+elif [ -f "$repo/docpolicy/__init__.py" ]; then
+  dp() { PYTHONPATH="$repo${PYTHONPATH:+:$PYTHONPATH}" python3 -m docpolicy "$@"; }
+else
+  echo "docpolicy: no checker — uv tool install docpolicy (or set DOCPOLICY_SRC)" >&2
+  exit 1
+fi
+dp check --staged --repo "$repo" || {
   echo "docpolicy: commit blocked — fix the findings above or use --no-verify (discouraged)." >&2
   exit 1
 }

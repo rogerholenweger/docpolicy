@@ -371,6 +371,12 @@ class CliTest(unittest.TestCase):
         hooks = subprocess.run(["git", "config", "core.hooksPath"], cwd=repo2,
                                capture_output=True, text=True, check=False).stdout.strip()
         self.assertEqual(hooks, ".githooks")
+        # The generated hook must resolve an installed CLI, never a hardcoded
+        # author path (regression: it used to write $HOME/src/docpolicy).
+        text = (repo2 / ".githooks" / "pre-commit").read_text()
+        self.assertIn("command -v docpolicy", text)
+        self.assertIn("DOCPOLICY_SRC", text)
+        self.assertNotIn("$HOME/src/docpolicy", text)
 
 
 INBOX_POLICY = """\

@@ -21,7 +21,7 @@ The enforceable form of "only one doc". Every doc carries frontmatter:
 
 ```yaml
 ---
-subject: sprint-plan          # the identity: ONE active doc per subject
+subject: sprint-plan            # the identity: ONE active doc per subject
 status: active                  # active | superseded | archived | draft
 superseded_by: plans/new.md     # required when status: superseded
 ---
@@ -55,13 +55,17 @@ Via the Hermes plugin (same checker, any cwd):
 hermes docpolicy <check|audit|brief|fix|triage|llm> [args...]
 ```
 
-**Exit codes:** `0` clean/advisory · `1` error-severity findings · `2` config error.
+**Exit codes:** `0` clean/advisory · `1` error-severity findings · `2` config error (bad policy — or, when several repos are given, one of them has no policy file).
 
 ## Quickstart (new repo)
 
 ```bash
-PYTHONPATH=/path/to/docpolicy python3 -m docpolicy init --repo ~/src/newrepo
+uv tool install docpolicy               # once per machine — see below
+docpolicy init --repo ~/src/newrepo
 ```
+
+Running from a clone instead of an installed package works identically:
+`PYTHONPATH=/path/to/docpolicy python3 -m docpolicy init --repo ~/src/newrepo`.
 
 This writes `.docpolicy.yaml` + `.githooks/pre-commit` and sets `git config core.hooksPath=.githooks`. Then **edit the classes** to match the repo (see [Policy reference](#policy-reference)).
 
@@ -268,8 +272,9 @@ Self-hosting: this repo carries its own `.docpolicy.yaml` and a pre-commit hook
 (`core.hooksPath=.githooks`), so a commit that violates the policy is rejected by
 the same checker the repo ships. Both test suites are stdlib-only and run offline.
 
-- Version 0.1.0 — check codes, class modes and CLI flags are stable; internal
-  modules (`miniyaml`, the triage heuristics) may still move.
+- Version 0.1.2 — published on PyPI: `pip install docpolicy` or
+  `uv tool install docpolicy`. Check codes, class modes and CLI flags are stable;
+  internal modules (`miniyaml`, the triage heuristics) may still move.
 - Known limits are documented in `docs/design.md`: related-doc scoring is
   bag-of-words overlap (no embeddings), and the LLM layer only ever labels —
   it never decides placement or blocks anything.
