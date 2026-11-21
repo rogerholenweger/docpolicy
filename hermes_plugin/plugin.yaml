@@ -1,0 +1,15 @@
+# docpolicy Hermes plugin — enforces the doc policy of any repo with a
+# .docpolicy.yaml by shelling out to the docpolicy checker. No rules of its own.
+name: docpolicy
+version: 1.1.0
+description: "Documentation-drift enforcement — blocks writes of .md files that violate the repo's .docpolicy.yaml (frontmatter, subject uniqueness, ephemeral, archive hygiene). Also surfaces untriaged inbox captures each turn via pre_llm_call and exposes docpolicy_triage. Shells out to docpolicy; advisory log for lesser findings."
+author: Roger Holenweger
+provides_tools:
+  - docpolicy_brief
+  - docpolicy_check
+  - docpolicy_triage
+provides_hooks:
+  - pre_tool_call
+  - pre_llm_call
+  - on_session_start
+  - on_session_end

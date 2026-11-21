@@ -1,0 +1,31 @@
+# docpolicy — one policy per repo. Docs: see the docpolicy README.
+# Class order matters: FIRST matching class wins — declare narrow classes
+# (archive, ephemeral) BEFORE broad canonical globs.
+version: 1
+
+classes:
+  - id: archive
+    mode: archive
+    paths: ["**/archive/**"]
+  - id: scratch
+    mode: ephemeral
+    paths: [".hermes/plans/**"]
+    max_age_days: 2
+    require_pointer: true
+  - id: inbox
+    mode: inbox
+    paths: ["inbox/**"]
+    dest: "docs"
+    max_age_days: 14
+  - id: generated
+    mode: generated
+    paths: []
+    generator: ""
+  - id: exempt
+    mode: exempt
+    paths:
+      - "README.md"
+      - "hermes_plugin/README.md"
+  - id: docs
+    mode: canonical
+    paths: ["docs/**/*.md"]

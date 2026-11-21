@@ -1,0 +1,8 @@
+#!/bin/sh
+# docpolicy: block commits that violate the doc policy.
+repo="$(git rev-parse --show-toplevel)" || exit 1
+PYTHONPATH="$HOME/src/docpolicy${PYTHONPATH:+:$PYTHONPATH}" \
+  python3 -m docpolicy check --staged --repo "$repo" || {
+  echo "docpolicy: commit blocked — fix the findings above or use --no-verify (discouraged)." >&2
+  exit 1
+}
