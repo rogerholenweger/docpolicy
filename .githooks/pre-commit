@@ -2,26 +2,29 @@
 # docpolicy: block commits that violate the doc policy.
 #
 # Checker resolution, first hit wins:
-#   1. DOCPOLICY_SRC          — explicit override
-#   2. <repo>/docpolicy/      — self-hosted copy (this repo, and anyone who
-#                               vendors the checker in-tree)
-#   3. ~/src/docpolicy-public — the machine's clone of the public repo
-# No single install layout is assumed; if none of the three exists the hook fails
-# loudly instead of silently passing every commit.
+#   1. DOCPOLICY_SRC           — explicit override (python3 -m docpolicy)
+#   2. <repo>/docpolicy/       — self-hosted copy (this repo, and anyone who
+#                                vendors the checker in-tree)
+#   3. `docpolicy` on PATH     — global install (uv tool / pipx / pip --user);
+#                                works with no venv and no python3 on PATH
+#   4. ~/src/docpolicy-public  — the machine's clone of the public repo
+# If none exists the hook fails loudly instead of silently passing every commit.
 repo="$(git rev-parse --show-toplevel)" || exit 1
+
 if [ -n "${DOCPOLICY_SRC:-}" ]; then
-  DP="$DOCPOLICY_SRC"
+  dp() { PYTHONPATH="$DOCPOLICY_SRC${PYTHONPATH:+:$PYTHONPATH}" python3 -m docpolicy "$@"; }
 elif [ -f "$repo/docpolicy/__init__.py" ]; then
-  DP="$repo"
+  dp() { PYTHONPATH="$repo${PYTHONPATH:+:$PYTHONPATH}" python3 -m docpolicy "$@"; }
+elif command -v docpolicy >/dev/null 2>&1; then
+  dp() { docpolicy "$@"; }
 elif [ -f "$HOME/src/docpolicy-public/docpolicy/__init__.py" ]; then
-  DP="$HOME/src/docpolicy-public"
+  dp() { PYTHONPATH="$HOME/src/docpolicy-public${PYTHONPATH:+:$PYTHONPATH}" python3 -m docpolicy "$@"; }
 else
-  echo "docpolicy: checker not found — set DOCPOLICY_SRC to your docpolicy clone" >&2
+  echo "docpolicy: no checker — uv tool install docpolicy (or set DOCPOLICY_SRC)" >&2
   exit 1
 fi
 
-PYTHONPATH="$DP${PYTHONPATH:+:$PYTHONPATH}" \
-  python3 -m docpolicy check --staged --repo "$repo" || {
+dp check --staged --repo "$repo" || {
   echo "docpolicy: commit blocked — fix the findings above or use --no-verify (discouraged)." >&2
   exit 1
 }

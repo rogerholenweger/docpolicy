@@ -67,6 +67,28 @@ This writes `.docpolicy.yaml` + `.githooks/pre-commit` and sets `git config core
 
 For repos maintained through this Hermes instance, also deploy the plugin (see [Enforcement surfaces](#enforcement-surfaces)) — the pre-commit hook alone already covers human + agent commits; the plugin adds real-time blocking and inbox pickup.
 
+## Install once, use everywhere
+
+    uv tool install docpolicy      # global CLI in its own isolated env
+    # or: pipx install docpolicy
+    # or: pip install --user docpolicy
+
+The checker is stdlib-only, so one global install serves every repo — including
+repos with no Python environment of their own. The tool ships its own interpreter,
+so it does not care whether a project has a venv, or whether `python3` is the
+version you'd expect.
+
+Do **not** `pip install docpolicy` inside a project venv to get it working there.
+That copy shadows the global one whenever the venv is active, and a stale pin then
+behaves like a stale CLI (the classic symptom: `unrecognized arguments` for a flag
+that exists upstream). If you already have one, `pip uninstall docpolicy` in that
+venv.
+
+The git hook works with any of these layouts. Resolution order: `DOCPOLICY_SRC`
+if set → a self-hosted `docpolicy/` in the repo → `docpolicy` on `PATH` → a
+`~/src/docpolicy-public` clone. It fails loudly if none is found rather than
+silently passing every commit.
+
 ## Daily workflows
 
 ### Capture: drop a raw document
