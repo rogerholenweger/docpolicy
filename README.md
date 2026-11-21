@@ -85,9 +85,9 @@ that exists upstream). If you already have one, `pip uninstall docpolicy` in tha
 venv.
 
 The git hook works with any of these layouts. Resolution order: `DOCPOLICY_SRC`
-if set → a self-hosted `docpolicy/` in the repo → `docpolicy` on `PATH` → a
-`~/src/docpolicy-public` clone. It fails loudly if none is found rather than
-silently passing every commit.
+if set → `docpolicy` on `PATH` → a self-hosted `docpolicy/` in the repo → a
+`~/src/docpolicy-public` clone. The plugin uses the same rule. It fails loudly if
+none is found rather than silently passing every commit.
 
 ## Daily workflows
 

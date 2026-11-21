@@ -9,6 +9,7 @@ brick the agent.
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -178,12 +179,27 @@ def decide(findings: list, rel: str, advisory: bool):
 # Checker subprocess (the only external call; failure => allow)
 # ---------------------------------------------------------------------------
 
-def run_checker(repo: Path, extra_args: list, timeout: float = CHECKER_TIMEOUT_S,
-                stdin_text: str | None = None):
-    """Run python3 -m docpolicy ... --json; returns (rc, parsed_json_or_None)."""
+def checker_argv():
+    """How to invoke the checker, as any user of the published package would.
+
+    Priority: the installed `docpolicy` executable (uv tool / pipx / pip --user)
+    → the package source via PYTHONPATH (DOCPOLICY_SRC, or this repo). When the
+    executable is used, PYTHONPATH is left untouched so a stale in-tree copy
+    cannot shadow the installed release.
+    """
+    exe = shutil.which("docpolicy")
+    if exe:
+        return [exe], dict(os.environ)
     env = dict(os.environ)
     env["PYTHONPATH"] = DOCPOLICY_SRC + os.pathsep + env.get("PYTHONPATH", "")
-    cmd = ["python3", "-m", "docpolicy"] + list(extra_args) + ["--json"]
+    return ["python3", "-m", "docpolicy"], env
+
+
+def run_checker(repo: Path, extra_args: list, timeout: float = CHECKER_TIMEOUT_S,
+                stdin_text: str | None = None):
+    """Run the checker ... --json; returns (rc, parsed_json_or_None)."""
+    base, env = checker_argv()
+    cmd = base + list(extra_args) + ["--json"]
     proc = subprocess.run(cmd, cwd=str(repo), env=env, capture_output=True,
                           text=True, timeout=timeout, check=False,
                           input=stdin_text)
@@ -266,10 +282,9 @@ def _on_pre_tool_call(tool_name: str = "", args=None, task_id: str = "", **kwarg
 
 
 def _run_plain(repo: Path, extra_args: list, timeout: float = CHECKER_TIMEOUT_S):
-    """Run python3 -m docpolicy ... (no --json) and return (rc, stdout)."""
-    env = dict(os.environ)
-    env["PYTHONPATH"] = DOCPOLICY_SRC + os.pathsep + env.get("PYTHONPATH", "")
-    proc = subprocess.run(["python3", "-m", "docpolicy"] + list(extra_args),
+    """Run the checker (no --json) and return (rc, stdout)."""
+    base, env = checker_argv()
+    proc = subprocess.run(base + list(extra_args),
                           cwd=str(repo), env=env, capture_output=True, text=True,
                           timeout=timeout, check=False)
     return proc.returncode, proc.stdout

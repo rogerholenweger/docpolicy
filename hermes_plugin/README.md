@@ -1,8 +1,10 @@
 # docpolicy Hermes plugin
 
 Enforcement surface for the docpolicy checker. The plugin contains NO rules of
-its own — every block decision comes from `python3 -m docpolicy check --json`
-(`DOCPOLICY_SRC` defaults to the repo root this package lives in). All hook paths
+its own — every block decision comes from the checker. It runs the installed
+`docpolicy` executable when one is on `PATH` (the normal case: `uv tool install
+docpolicy`), and otherwise falls back to `python3 -m docpolicy` with
+`DOCPOLICY_SRC` (default: the repo root this package lives in). All hook paths
 fail OPEN: on any internal error the plugin logs and allows, so a broken plugin
 cannot brick the agent.
 

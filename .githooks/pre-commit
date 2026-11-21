@@ -3,20 +3,20 @@
 #
 # Checker resolution, first hit wins:
 #   1. DOCPOLICY_SRC           — explicit override (python3 -m docpolicy)
-#   2. <repo>/docpolicy/       — self-hosted copy (this repo, and anyone who
-#                                vendors the checker in-tree)
-#   3. `docpolicy` on PATH     — global install (uv tool / pipx / pip --user);
-#                                works with no venv and no python3 on PATH
-#   4. ~/src/docpolicy-public  — the machine's clone of the public repo
+#   2. `docpolicy` on PATH     — global install (uv tool / pipx / pip --user);
+#                                the normal case, and the only one that needs
+#                                no python3 or venv in the project
+#   3. <repo>/docpolicy/       — self-hosted copy (anyone who vendors it)
+#   4. ~/src/docpolicy-public  — a local clone of the public repo
 # If none exists the hook fails loudly instead of silently passing every commit.
 repo="$(git rev-parse --show-toplevel)" || exit 1
 
 if [ -n "${DOCPOLICY_SRC:-}" ]; then
   dp() { PYTHONPATH="$DOCPOLICY_SRC${PYTHONPATH:+:$PYTHONPATH}" python3 -m docpolicy "$@"; }
-elif [ -f "$repo/docpolicy/__init__.py" ]; then
-  dp() { PYTHONPATH="$repo${PYTHONPATH:+:$PYTHONPATH}" python3 -m docpolicy "$@"; }
 elif command -v docpolicy >/dev/null 2>&1; then
   dp() { docpolicy "$@"; }
+elif [ -f "$repo/docpolicy/__init__.py" ]; then
+  dp() { PYTHONPATH="$repo${PYTHONPATH:+:$PYTHONPATH}" python3 -m docpolicy "$@"; }
 elif [ -f "$HOME/src/docpolicy-public/docpolicy/__init__.py" ]; then
   dp() { PYTHONPATH="$HOME/src/docpolicy-public${PYTHONPATH:+:$PYTHONPATH}" python3 -m docpolicy "$@"; }
 else

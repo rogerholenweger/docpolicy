@@ -13,6 +13,7 @@ new checker flags work here without touching this file.
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -20,6 +21,16 @@ from pathlib import Path
 # Same resolution rule as the plugin package; duplicated on purpose so this
 # module stays importable without the package (and without a cycle).
 DOCPOLICY_SRC = os.environ.get("DOCPOLICY_SRC") or str(Path(__file__).resolve().parent.parent)
+
+
+def checker_argv():
+    """Installed `docpolicy` executable if present, else the package source."""
+    exe = shutil.which("docpolicy")
+    if exe:
+        return [exe], dict(os.environ)
+    env = dict(os.environ)
+    env["PYTHONPATH"] = DOCPOLICY_SRC + os.pathsep + env.get("PYTHONPATH", "")
+    return ["python3", "-m", "docpolicy"], env
 
 PASSTHROUGH = (
     ("check", "fast check (C1-C3, frontmatter, archive)"),
@@ -59,14 +70,14 @@ def docpolicy_command(args: argparse.Namespace) -> int:
     argv = [cmd] + list(getattr(args, "args", []) or [])
     if "--repo" not in argv:
         argv += ["--repo", os.getcwd()]
-    env = dict(os.environ)
-    env["PYTHONPATH"] = DOCPOLICY_SRC + os.pathsep + env.get("PYTHONPATH", "")
-    if not Path(DOCPOLICY_SRC).is_dir():
-        print(f"docpolicy: checker source not found at {DOCPOLICY_SRC} "
-              "(set DOCPOLICY_SRC)", file=sys.stderr)
+    base, env = checker_argv()
+    if base[0] == "python3" and not Path(DOCPOLICY_SRC).is_dir():
+        print(f"docpolicy: no checker — uv tool install docpolicy "
+              f"(or set DOCPOLICY_SRC; source not found at {DOCPOLICY_SRC})",
+              file=sys.stderr)
         return 2
     try:
-        proc = subprocess.run(["python3", "-m", "docpolicy"] + argv,
+        proc = subprocess.run(base + argv,
                               env=env, cwd=os.getcwd(), timeout=120, check=False)
     except subprocess.TimeoutExpired:
         print("docpolicy: timed out after 120s", file=sys.stderr)
