@@ -22,6 +22,8 @@ dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/rogerholenweger/docpolicy"
+Repository = "https://github.com/rogerholenweger/docpolicy"
+Issues = "https://github.com/rogerholenweger/docpolicy/issues"
 
 [project.scripts]
 docpolicy = "docpolicy.cli:main"

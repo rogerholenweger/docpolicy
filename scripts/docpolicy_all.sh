@@ -15,10 +15,19 @@ SELF="$(readlink -f "${BASH_SOURCE[0]:-$0}")"
 DP="$(cd "$(dirname "$SELF")/.." && pwd)"
 export PYTHONPATH="${DP}${PYTHONPATH:+:$PYTHONPATH}"
 
-# Repo list: DOCPOLICY_REPOS (space-separated paths) wins; otherwise edit
-# REPOS below to your own layout. Repos without a .docpolicy.yaml are skipped.
+# Repo list, highest priority first:
+#   1. DOCPOLICY_REPOS (space-separated paths)
+#   2. ~/.config/docpolicy/repos.txt (one path per line; # comments allowed)
+#   3. the REPOS array below
+# Repos without a .docpolicy.yaml are skipped.
 if [ -n "${DOCPOLICY_REPOS:-}" ]; then
   read -r -a REPOS <<< "$DOCPOLICY_REPOS"
+elif [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/docpolicy/repos.txt" ]; then
+  REPOS=()
+  while IFS= read -r line; do
+    case "$line" in ''|'#'*) continue ;; esac
+    REPOS+=("$line")
+  done < "${XDG_CONFIG_HOME:-$HOME/.config}/docpolicy/repos.txt"
 else
   REPOS=(
     "$HOME/src/project-a"

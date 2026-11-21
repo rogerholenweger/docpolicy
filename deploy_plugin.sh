@@ -14,7 +14,12 @@ set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)/hermes_plugin"
 PLUGIN_ID="docpolicy"
+# HERMES_HOME may point at a profile directory when this runs inside a Hermes
+# session (e.g. ~/.hermes/profiles/okf). Deploy targets need the Hermes ROOT, so
+# strip a /profiles/<name> suffix; HERMES_ROOT overrides explicitly.
 HERMES_HOME="${HERMES_HOME:-${HOME}/.hermes}"
+HERMES_ROOT="${HERMES_ROOT:-${HERMES_HOME%%/profiles/*}}"
+[ "${HERMES_ROOT}" = "${HERMES_HOME}" ] || HERMES_HOME="${HERMES_ROOT}"
 
 [ -f "${SRC_DIR}/plugin.yaml" ] || { echo "ERROR: ${SRC_DIR}/plugin.yaml missing" >&2; exit 1; }
 

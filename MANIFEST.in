@@ -1,0 +1,10 @@
+include README.md
+include LICENSE
+include .docpolicy.yaml
+include deploy_plugin.sh
+recursive-include docpolicy *.py
+recursive-include docs *.md
+recursive-include hermes_plugin *.py *.yaml *.md
+recursive-include scripts *.sh
+recursive-include tests *.py
+global-exclude __pycache__ *.py[cod]
