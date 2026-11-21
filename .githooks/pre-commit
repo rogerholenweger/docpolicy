@@ -1,7 +1,26 @@
 #!/bin/sh
 # docpolicy: block commits that violate the doc policy.
+#
+# Checker resolution, first hit wins:
+#   1. DOCPOLICY_SRC          — explicit override
+#   2. <repo>/docpolicy/      — self-hosted copy (this repo, and anyone who
+#                               vendors the checker in-tree)
+#   3. ~/src/docpolicy-public — the machine's clone of the public repo
+# No single install layout is assumed; if none of the three exists the hook fails
+# loudly instead of silently passing every commit.
 repo="$(git rev-parse --show-toplevel)" || exit 1
-PYTHONPATH="$HOME/src/docpolicy${PYTHONPATH:+:$PYTHONPATH}" \
+if [ -n "${DOCPOLICY_SRC:-}" ]; then
+  DP="$DOCPOLICY_SRC"
+elif [ -f "$repo/docpolicy/__init__.py" ]; then
+  DP="$repo"
+elif [ -f "$HOME/src/docpolicy-public/docpolicy/__init__.py" ]; then
+  DP="$HOME/src/docpolicy-public"
+else
+  echo "docpolicy: checker not found — set DOCPOLICY_SRC to your docpolicy clone" >&2
+  exit 1
+fi
+
+PYTHONPATH="$DP${PYTHONPATH:+:$PYTHONPATH}" \
   python3 -m docpolicy check --staged --repo "$repo" || {
   echo "docpolicy: commit blocked — fix the findings above or use --no-verify (discouraged)." >&2
   exit 1
