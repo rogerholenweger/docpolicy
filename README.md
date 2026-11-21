@@ -102,10 +102,11 @@ none is found rather than silently passing every commit.
 
 ### Capture: drop a raw document
 
-Drop any file into the repo's `inbox/` directory. No frontmatter needed — inbox docs are deliberately exempt from the frontmatter contract and from `FM`/`C2`/`C9` (zero friction at capture time is the point). The cost surfaces as two advisory checks instead:
+Drop any file into the repo's `inbox/` directory. No frontmatter needed — inbox docs are deliberately exempt from the frontmatter contract and from `FM`/`C2`/`C9` (zero friction at capture time is the point). The cost is one deferred advisory check:
 
 - `C11` — capture older than the inbox class's `max_age_days` → triage or delete.
-- `C10` — two active docs sharing 2+ tags → same topic? merge or differentiate.
+
+The one hard prerequisite is an `inbox` class in the policy: with no class matching the path, the dropped file is unclassified and `C1` (an error) fires immediately. Once a capture is promoted and `status: active`, it can also trip the tag-collision warning (`C10`) — but that is a property of the promoted doc, never of the capture sitting in the inbox.
 
 The plugin's `pre_llm_call` hook injects an inbox notice into agent sessions ("N untriaged captures...") so captures cannot be silently forgotten.
 
@@ -150,7 +151,7 @@ Move it into the archive class (`docs/archive/**` here) with `status: superseded
 hermes docpolicy check --repo .          # fast: C1-C3, FM, C7, C9, C11 (per-commit safe)
 hermes docpolicy audit --repo .          # full: everything
 hermes docpolicy audit --repo . --json   # machine-readable
-hermes docpolicy audit --repo . --advisory   # all warn-level, exit 0 (scoring runs)
+hermes docpolicy audit --repo . --advisory   # every finding as warn, exit 0 (still reports)
 hermes docpolicy fix --repo . --dry-run  # propose frontmatter for unlabelled canonical docs
 hermes docpolicy fix --repo . --apply    # write them (subject = filename stem)
 ```
@@ -236,7 +237,7 @@ One command checks every repo that has a policy:
 
 ```bash
 docpolicy-all               # fast check (C1-C3, frontmatter, archive) on all repos
-docpolicy-all --audit       # full audit (adds C4-C8, C10, C12)
+docpolicy-all --audit       # full audit (adds C4-C6, C8, C10, C12)
 docpolicy-all notes         # subset: named repos only (basename or path)
 ```
 
