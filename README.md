@@ -272,9 +272,12 @@ Self-hosting: this repo carries its own `.docpolicy.yaml` and a pre-commit hook
 (`core.hooksPath=.githooks`), so a commit that violates the policy is rejected by
 the same checker the repo ships. Both test suites are stdlib-only and run offline.
 
-- Version 0.1.2 — published on PyPI: `pip install docpolicy` or
+- Version 0.1.3 — published on PyPI: `pip install docpolicy` or
   `uv tool install docpolicy`. Check codes, class modes and CLI flags are stable;
   internal modules (`miniyaml`, the triage heuristics) may still move.
+- PyPI filenames are immutable. Any change, however small, needs a version bump —
+  rebuilding and re-uploading an already-published version always fails with
+  `400 File already exists`.
 - Known limits are documented in `docs/design.md`: related-doc scoring is
   bag-of-words overlap (no embeddings), and the LLM layer only ever labels —
   it never decides placement or blocks anything.
