@@ -41,13 +41,18 @@ Replacing a doc (the "versioning" half of the deal):
 
 ```bash
 docpolicy init   [--repo DIR] [--force]    # policy template + .githooks/pre-commit + core.hooksPath
-docpolicy check  [--repo DIR] [--staged] [--files P ...] [--stdin-file R] [--json] [--advisory]
-docpolicy audit  [--repo DIR] [--json] [--advisory]    # full pass (adds C4-C6, C8, C10, C12)
+docpolicy check  [--repo DIR ...] [DIR ...] [--staged] [--files P ...] [--stdin-file R] [--json] [--advisory]
+docpolicy audit  [--repo DIR ...] [DIR ...] [--json] [--advisory]    # full pass (adds C4-C6, C8, C10, C12)
 docpolicy brief  [--repo DIR] [--md]                   # policy table (injected into agent sessions)
 docpolicy fix    [--repo DIR] [--dry-run] [--apply]    # mechanical frontmatter conformance
 docpolicy triage [--repo DIR] [--json] [--apply] [--force] [--queue --project CODE] [--llm] [--no-llm]
 docpolicy llm    [--json] [--set-key] [--set-model M] [--set-base URL] [--clear]
 ```
+
+`check` and `audit` take several repos: `--repo` is repeatable and bare paths work
+too (`docpolicy check ~/src/a ~/src/b`). With more than one, output is a block per
+repo and `--json` wraps as `{"repos": [...]}`; the single-repo JSON shape is
+unchanged. `--files` and `--stdin-file` stay single-repo.
 
 Via the Hermes plugin (same checker, any cwd):
 
@@ -195,7 +200,7 @@ rules:
 | `C1` | error | unclassified file — add a class glob or move the file |
 | `C2` | error | subject has >1 active doc — supersede all but one |
 | `C3` | error | superseded doc missing/invalid `superseded_by` — point at the active doc |
-| `C4` | error | generated file stale — re-run the generator (audit restores bytes) |
+| `C4` | error | generated file stale — re-run the generator (the doc and its `facts:` file are both restored afterwards, so the audit stays side-effect free) |
 | `C5` | warn | broken relative md link — repair or unlink |
 | `C6` | warn | `PROJECT-NN` reference not in the task store (codes are read *from* the store, so `SHA-256`/`AVX-512` cannot false-positive) |
 | `C7` | error | ephemeral doc too old or missing pointer to a canonical doc |
