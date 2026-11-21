@@ -164,8 +164,36 @@ def check_supersession(docs: list[DocInfo], policy: Policy, out: list, advisory:
                  advisory)
 
 
+def _class_facts_path(repo: Path, cls: dict):
+    """Resolve a generated class's `facts:` file (repo-relative unless absolute)."""
+    rel = cls.get("facts")
+    if not rel:
+        return None
+    p = Path(os.path.expanduser(str(rel)))
+    return p if p.is_absolute() else repo / p
+
+
+def _restore_file(path, before):
+    """Put a file back exactly as it was; before=None means it did not exist."""
+    if path is None:
+        return
+    try:
+        if before is None:
+            if path.is_file():
+                path.unlink()
+        elif not path.is_file() or path.read_bytes() != before:
+            path.write_bytes(before)
+    except OSError:
+        pass
+
+
 def check_generated(repo: Path, policy: Policy, out: list, advisory: bool):
-    """C4: re-run each declared generator; restore original bytes afterwards."""
+    """C4: re-run each declared generator; restore original bytes afterwards.
+
+    The generator typically writes two things: the generated doc (matched by
+    `paths`) and, when `facts:` is declared, a side-car JSON file. Both are
+    snapshotted and restored, so an audit never mutates the repo.
+    """
     for c in policy.classes:
         if c["mode"] != "generated" or not c["paths"] or not c.get("generator"):
             continue
@@ -178,6 +206,9 @@ def check_generated(repo: Path, policy: Policy, out: list, advisory: bool):
                 rel = p.relative_to(repo).as_posix()
                 before = p.read_bytes()
                 h_before = hashlib.sha256(before).hexdigest()
+                facts_path = _class_facts_path(repo, c)
+                facts_before = (facts_path.read_bytes()
+                                if facts_path is not None and facts_path.is_file() else None)
                 # No shell: the generator line is repo-owner config (same trust as a
                 # Makefile entry), but we still shlex-split it and expand ~/$VARS per
                 # token instead of handing it to a shell. Complex pipelines belong in
@@ -192,18 +223,25 @@ def check_generated(repo: Path, policy: Policy, out: list, advisory: bool):
                          f"cannot parse generator {c['generator']!r}: {e}", advisory)
                     continue
                 try:
-                    subprocess.run(argv, cwd=repo, timeout=120, check=False,
-                                   capture_output=True)
-                except subprocess.TimeoutExpired:
-                    _add(out, policy, "C4", rel, f"generator timed out: {c['generator']!r}",
-                         advisory)
-                    p.write_bytes(before)
-                    continue
-                after = p.read_bytes() if p.exists() else b""
-                if hashlib.sha256(after).hexdigest() != h_before:
-                    _add(out, policy, "C4", rel,
-                         "generated file is stale — re-run: " + c["generator"], advisory)
-                    p.write_bytes(before)  # audit is side-effect free
+                    try:
+                        subprocess.run(argv, cwd=repo, timeout=120, check=False,
+                                       capture_output=True)
+                    except subprocess.TimeoutExpired:
+                        _add(out, policy, "C4", rel,
+                             f"generator timed out: {c['generator']!r}", advisory)
+                        p.write_bytes(before)
+                        continue
+                    except OSError as e:
+                        _add(out, policy, "C4", rel,
+                             f"cannot run generator {c['generator']!r}: {e}", advisory)
+                        continue
+                    after = p.read_bytes() if p.exists() else b""
+                    if hashlib.sha256(after).hexdigest() != h_before:
+                        _add(out, policy, "C4", rel,
+                             "generated file is stale — re-run: " + c["generator"], advisory)
+                        p.write_bytes(before)  # generated doc: restored when stale
+                finally:
+                    _restore_file(facts_path, facts_before)  # `facts:` side-car too
 
 
 def check_links(d: DocInfo, repo: Path, policy: Policy, out: list, advisory: bool):
@@ -428,15 +466,14 @@ def check_assertions(docs: list[DocInfo], repo: Path, policy: Policy, out: list,
     loop-closer: a spec that contradicts what the repo actually is becomes a
     finding, not a silent prose drift."""
     facts_rel = None
+    facts_path = None
     for c in policy.classes:
         if c["mode"] == "generated" and c.get("facts"):
             facts_rel = str(c["facts"])
+            facts_path = _class_facts_path(repo, c)
             break
-    if facts_rel is None:
+    if facts_rel is None or facts_path is None:
         return
-    facts_path = Path(os.path.expanduser(facts_rel))
-    if not facts_path.is_absolute():
-        facts_path = repo / facts_path
     facts: dict = {}
     if not facts_path.is_file():
         _add(out, policy, "C12", facts_rel,

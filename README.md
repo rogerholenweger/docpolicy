@@ -170,7 +170,7 @@ classes:
 | Mode | Extra keys | Meaning |
 |---|---|---|
 | `canonical` | — | the real docs; frontmatter contract enforced |
-| `generated` | `generator`, `facts` | build output; `C4` re-runs the generator and diffs (side-effect free: bytes restored). With `facts:` (a JSON file the generator writes), specs' `assert:` frontmatter is checked against it (`C12`) |
+| `generated` | `generator`, `facts` | build output; `C4` re-runs the generator and diffs — the generated doc **and** the `facts:` JSON are snapshotted and restored, so an audit never mutates the repo. With `facts:`, specs' `assert:` frontmatter is checked against it (`C12`) |
 | `archive` | — | history; must not be `status: active` (`C9`) |
 | `ephemeral` | `max_age_days`, `require_pointer` | session scratch; ages out (`C7`) and must link to a canonical doc (the `.hermes/plans` rule) |
 | `append-only` | — | logs; never checked for frontmatter |
@@ -264,7 +264,7 @@ hermes docpolicy llm --clear              # remove the config file
 | triage tool call times out (~8s) | the Hermes tool wrapper caps runtime; run the CLI directly with `--llm` and a generous timeout, or `--no-llm` |
 | audit "0 findings" right after an inbox drop | correct — inbox is exempt until triaged; `C11` ages stale captures out |
 | `--repodir: unrecognized argument` | the flag is `--repo` |
-| Will an audit mutate my repo? | No: `C4` re-runs generators and restores the original bytes afterwards |
+| Will an audit mutate my repo? | No: `C4` restores both the generated doc and the `facts:` side-car file it re-generates |
 
 ## Status
 
@@ -272,9 +272,12 @@ Self-hosting: this repo carries its own `.docpolicy.yaml` and a pre-commit hook
 (`core.hooksPath=.githooks`), so a commit that violates the policy is rejected by
 the same checker the repo ships. Both test suites are stdlib-only and run offline.
 
-- Version 0.1.3 — published on PyPI: `pip install docpolicy` or
+- Version 0.1.4 — published on PyPI: `pip install docpolicy` or
   `uv tool install docpolicy`. Check codes, class modes and CLI flags are stable;
   internal modules (`miniyaml`, the triage heuristics) may still move.
+- 0.1.4 fixes a real side effect: `C4` restored the generated doc but not the
+  `facts:` JSON the same generator writes, so an audit silently rewrote that
+  file. Both are now snapshotted and restored.
 - PyPI filenames are immutable. Any change, however small, needs a version bump —
   rebuilding and re-uploading an already-published version always fails with
   `400 File already exists`.

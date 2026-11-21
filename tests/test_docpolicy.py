@@ -611,6 +611,27 @@ classes:
         findings = [f for f in checks.audit(self.repo, load(self.repo)) if f.code == "C12"]
         self.assertEqual(findings, [])
 
+    def test_audit_restores_the_facts_side_car_file(self):
+        # Regression: C4 restored the generated doc but not the `facts:` JSON the
+        # same generator writes, so an audit silently mutated the repo.
+        write(self.repo / "scripts" / "gen.py", (
+            "import json, pathlib\n"
+            "d = pathlib.Path('docs/generated')\n"
+            "(d / 'real.md').write_text('regenerated content\\n')\n"
+            "(d / 'facts.json').write_text(json.dumps({'price': 999}) + '\\n')\n"
+        ))
+        self._facts({"price": 1})
+        write(self.repo / "docs" / "generated" / "real.md", "original content\n")
+        doc = self.repo / "docs" / "generated" / "real.md"
+        facts = self.repo / "docs" / "generated" / "facts.json"
+        doc_before, facts_before = doc.read_bytes(), facts.read_bytes()
+
+        findings = checks.audit(self.repo, load(self.repo))
+
+        self.assertTrue(any(f.code == "C4" for f in findings), "stale doc must be flagged")
+        self.assertEqual(doc.read_bytes(), doc_before, "generated doc must be restored")
+        self.assertEqual(facts.read_bytes(), facts_before, "facts side-car must be restored")
+
     def test_mismatching_assertion_is_error(self):
         self._facts({"price": 0.0005})
         self._spec("assert:\n  price: 0.0002\n")
